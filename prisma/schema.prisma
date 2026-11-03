@@ -1,0 +1,99 @@
+// SunSpark English — Prisma schema
+// Default: SQLite for local demo. For Vercel/Neon, change provider to "postgresql"
+// and set DATABASE_URL to your Neon connection string.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  /// PARENT | ADMIN
+  role         String    @default("PARENT")
+  parentPin    String    @default("1234")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  students     Student[]
+  bookings     Booking[]
+  credits      ClassCredit[]
+}
+
+model Student {
+  id         String    @id @default(cuid())
+  parentId   String
+  parent     User      @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  name       String
+  age        Int
+  /// BAND_6_8 | BAND_9_11 | BAND_12_14 | BAND_15_17
+  ageBand    String
+  avatarJson String    @default("{}")
+  stars      Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  bookings   Booking[]
+  screenTime ScreenTime[]
+}
+
+model Booking {
+  id            String   @id @default(cuid())
+  parentId      String
+  parent        User     @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  studentId     String?
+  student       Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  /// Date of class in America/Guatemala (YYYY-MM-DD)
+  date          String
+  /// Start hour 14–18 (2 PM–6 PM)
+  startHour     Int
+  /// HELD_CASH | PENDING_TRANSFER | CONFIRMED | CANCELLED | RELEASED
+  status        String
+  /// PAYPAL | TRANSFER | CASH
+  paymentMethod String
+  /// PENDING | PAID | REFUNDED
+  paymentStatus String   @default("PENDING")
+  amountGtq     Int      @default(75)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([date, startHour])
+  @@index([parentId])
+  @@index([status])
+}
+
+model BlockedDay {
+  id        String   @id @default(cuid())
+  /// YYYY-MM-DD America/Guatemala
+  date      String   @unique
+  reason    String?
+  createdAt DateTime @default(now())
+}
+
+model ScreenTime {
+  id                  String  @id @default(cuid())
+  studentId           String
+  student             Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  /// YYYY-MM-DD
+  date                String
+  minutesUsed         Int     @default(0)
+  extraMinutesGranted Int     @default(0)
+  pendingMoreTime     Boolean @default(false)
+
+  @@unique([studentId, date])
+}
+
+model ClassCredit {
+  id        String    @id @default(cuid())
+  parentId  String
+  parent    User      @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
